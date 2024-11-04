@@ -14,13 +14,21 @@ interface ToDoComponentProps {
   text: string;
   completeTask: (name: string, text: string, id: number) => void;
   id: number;
-  tasks: ToDoComponent[];
   deleteTask: (id: number) => void;
   handleEdit: (name: string, text: string, id: number) => void;
+  isCompleted: boolean;
 }
 
 export const ToDoComponent = (props: ToDoComponentProps) => {
-  const { name, text, id, completeTask, tasks, deleteTask, handleEdit } = props;
+  const {
+    name,
+    text,
+    id,
+    completeTask,
+    deleteTask,
+    handleEdit,
+    isCompleted = false,
+  } = props;
 
   const [pressed, setPressed] = useState(false);
   return (
@@ -40,9 +48,11 @@ export const ToDoComponent = (props: ToDoComponentProps) => {
 
       <View style={styles.footerWrapper}>
         <View style={styles.rowContainer}>
-          <Pressable onPress={() => handleEdit(name, text, id)}>
-            <EditIcon />
-          </Pressable>
+          {!isCompleted && (
+            <Pressable onPress={() => handleEdit(name, text, id)}>
+              <EditIcon />
+            </Pressable>
+          )}
           <Pressable onPress={() => deleteTask(id)}>
             <DeleteIcon />
           </Pressable>
@@ -51,7 +61,9 @@ export const ToDoComponent = (props: ToDoComponentProps) => {
           onPress={() => completeTask(name, text, id)}
           style={styles.rowContainer}
         >
-          <TextBase style={styles.markText}>Mark completed</TextBase>
+          <TextBase style={styles.markText}>
+            {isCompleted ? "Completed" : "Mark completed"}
+          </TextBase>
           <Marked />
         </Pressable>
       </View>

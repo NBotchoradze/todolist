@@ -6,9 +6,9 @@ export const useTaskData = () => {
       await db
     ).runAsync("INSERT INTO tasks (name, text) VALUES (?, ?)", name, text);
 
-  const get = async () => {
+  const get = async (): Promise<ITask[]> => {
     const tasks = await (await db).getAllAsync("SELECT * FROM tasks");
-    return tasks;
+    return tasks as ITask[];
   };
 
   const edit = async (name: string, text: string, id: number) => {
@@ -49,18 +49,26 @@ export const useCompletedTaskData = () => {
       text
     );
 
-  const get = async () => {
-    const tasks = await (await db).getAllAsync("SELECT * FROM tasks");
-    return tasks;
+  const get = async (): Promise<ITask[]> => {
+    const tasks = await (await db).getAllAsync("SELECT * FROM completedTasks");
+    return tasks as ITask[];
   };
 
-  const edit = async (id: number) => {
-    const foundTask = (await db).getFirstAsync(
-      "SELECT * FROM tasks WHERE id = ?",
-      id
-    );
-    return foundTask;
+  const remove = async (id: number) => {
+    try {
+      (await db).runAsync("DELETE FROM completedTasks WHERE id = ?", id);
+    } catch (error) {
+      console.error("Error removing task from completedTasks:", error);
+    }
   };
 
-  return { get, completeTask: save, edit };
+  const removeAll = async () => {
+    try {
+      (await db).runAsync("DELETE FROM completedTasks");
+    } catch (error) {
+      console.error("Error clearing tasks:", error);
+    }
+  };
+
+  return { get, completeTask: save, remove, removeAll };
 };

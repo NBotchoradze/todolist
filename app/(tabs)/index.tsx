@@ -7,15 +7,13 @@ import { TextBase } from "@/components/TextBase/TextBase";
 import { CreateModal } from "@/components/CreateModal/CreateModal";
 import { EditModal } from "@/components/EditModal/EditModal";
 import { ToDoComponent } from "@/components/ToDoComponent/ToDoComponent";
-import TasksIcon from "@/assets/images/TasksIcon.svg";
 import AddComponentIcon from "@/assets/images/AddComponentIcon.svg";
-import HistoryIconGrey from "@/assets/images/HistoryIconGrey.svg";
-import { db } from "@/constants/Database";
+import Calendar from "@/assets/images/calendar.svg";
+import Time from "@/assets/images/time.svg";
 import { useTaskData, useCompletedTaskData } from "@/hooks/useData";
 
 export default function HomeScreen() {
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [isEditing, setIsEditing] = useState<null | number>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [newTask, setNewTask] = useState<{ name: string; text: string }>({
     name: "",
@@ -26,13 +24,21 @@ export default function HomeScreen() {
     text: "",
     id: 0,
   });
-  const [tasks, setTasks] = useState<ToDoComponent[]>([]);
+  const [tasks, setTasks] = useState<ITask[]>([]);
+  const [completedTasks, setCompletedTasks] = useState<ITask[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedPage, setSelectedPage] = useState("tasks");
   const { get, save, edit, remove, removeAll } = useTaskData();
-  const { completeTask } = useCompletedTaskData();
+  const {
+    completeTask,
+    get: getCompletedTasks,
+    remove: removeCompleted,
+    removeAll: removeAllCompleted,
+  } = useCompletedTaskData();
 
   useEffect(() => {
     getTasks();
+    getAllCompletedTasks();
   }, []);
 
   const handleModalPress = () => {
@@ -58,12 +64,16 @@ export default function HomeScreen() {
       name: "",
       text: "",
     }));
-    // setIsEditing(null);
   };
 
   const clearTasks = () => {
-    removeAll();
-    getTasks();
+    if (selectedPage === "tasks") {
+      removeAll();
+      getTasks();
+    } else {
+      removeAllCompleted();
+      getAllCompletedTasks();
+    }
   };
 
   const handleModalClose = () => {
@@ -72,7 +82,6 @@ export default function HomeScreen() {
       name: "",
       text: "",
     }));
-    // setIsEditing(null);
   };
 
   const onChangeText = (name?: string, text?: string) => {
@@ -80,18 +89,29 @@ export default function HomeScreen() {
   };
 
   const filteredTasks = tasks?.filter(
-    (task) =>
+    (task: ITask) =>
       task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.text.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const getTasks = async () => {
+
+  const filteredCompletedTasks = completedTasks?.filter(
+    (task: ITask) =>
+      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.text.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const getTasks = async (): Promise<void> => {
     try {
-      await get().then((tasks) => setTasks(tasks));
+      await get().then((fetchedTasks: ITask[]) => setTasks(fetchedTasks));
     } catch (error) {
       console.error("Error fetching tasks:", error);
     }
   };
 
+  const getAllCompletedTasks = async (): Promise<void> => {
+    await getCompletedTasks().then((fetchedTasks: ITask[]) =>
+      setCompletedTasks(fetchedTasks)
+    );
+  };
   const handleTaskCompletion = async (
     name: string,
     text: string,
@@ -100,11 +120,16 @@ export default function HomeScreen() {
     await completeTask(name, text);
     remove(id);
     getTasks();
+    getAllCompletedTasks();
   };
 
   const removeTaskFromTasks = (id: number) => {
     remove(id);
     getTasks();
+  };
+  const removeTaskFromCompleted = (id: number) => {
+    removeCompleted(id);
+    getAllCompletedTasks();
   };
 
   const saveTask = async () => {
@@ -115,10 +140,6 @@ export default function HomeScreen() {
     } catch (error) {
       console.error("Error saving modal data:", error);
     }
-  };
-
-  const handleModalEdit = (name: string, text: string, id: number) => {
-    setFocusedTask({ id: id, name: "", text: "" });
   };
 
   const saveEditied = () => {
@@ -132,40 +153,75 @@ export default function HomeScreen() {
       <TopBar setSearchQuery={setSearchQuery} />
       <View style={styles.btnWrapper}>
         <View style={styles.btnRow}>
-          <View style={styles.btnContainer}>
+          <Pressable
+            style={styles.btnContainer}
+            onPress={() => setSelectedPage("tasks")}
+          >
             <TextBase style={styles.btnText}>Tasks</TextBase>
-            <TasksIcon />
-          </View>
-          <View style={styles.btnContainer}>
+            <View
+              style={[
+                styles.box,
+                selectedPage === "tasks" && styles.focusedBox,
+              ]}
+            >
+              <Calendar />
+            </View>
+          </Pressable>
+
+          <Pressable
+            style={styles.btnContainer}
+            onPress={() => setSelectedPage("history")}
+          >
             <TextBase style={styles.btnText}>History</TextBase>
-            <HistoryIconGrey />
-            {/* <Pressable onPress={() => navigation.navigate("HISTORY")}>
-              <HistoryEmptyGrey />
-            </Pressable> */}
-          </View>
+            <View
+              style={[
+                styles.box,
+                selectedPage === "history" && styles.focusedBox,
+              ]}
+            >
+              <Time />
+            </View>
+          </Pressable>
         </View>
         <Pressable onPress={clearTasks}>
           <TextBase style={styles.clearTasksText}>Clear all Tasks</TextBase>
         </Pressable>
       </View>
-
-      <FlatList
-        data={filteredTasks}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <ToDoComponent
-            name={item.name}
-            onEdit={handleModalEdit}
-            text={item.text}
-            completeTask={handleTaskCompletion}
-            id={item.id}
-            tasks={tasks}
-            deleteTask={removeTaskFromTasks}
-            handleEdit={handleEdit}
-          />
-        )}
-        ListFooterComponent={() => <View style={styles.footerView} />}
-      />
+      {(selectedPage === "tasks" && (
+        <FlatList
+          data={filteredTasks}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <ToDoComponent
+              name={item.name}
+              text={item.text}
+              completeTask={handleTaskCompletion}
+              id={item.id}
+              deleteTask={removeTaskFromTasks}
+              handleEdit={handleEdit}
+              isCompleted={false}
+            />
+          )}
+          ListFooterComponent={() => <View style={styles.footerView} />}
+        />
+      )) || (
+        <FlatList
+          data={filteredCompletedTasks}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <ToDoComponent
+              name={item.name}
+              text={item.text}
+              completeTask={() => {}}
+              id={item.id}
+              deleteTask={removeTaskFromCompleted}
+              isCompleted={true}
+              handleEdit={() => {}}
+            />
+          )}
+          ListFooterComponent={() => <View style={styles.footerView} />}
+        />
+      )}
       <View style={styles.addIconWrapper}>
         <Pressable onPress={handleModalPress}>
           <AddComponentIcon />
@@ -247,5 +303,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignSelf: "center",
     zIndex: 99,
+  },
+  box: {
+    backgroundColor: "#D8D8D8",
+    padding: 10,
+    borderRadius: 10,
+  },
+  focusedBox: {
+    backgroundColor: "#6A6CE0",
   },
 });
